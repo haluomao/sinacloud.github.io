@@ -1,0 +1,11 @@
+title: 新浪云
+email: saeadmin@sinacloud.com
+description: > 
+  新浪云技术团队博客，分享新浪云技术、产品的相关更新和动态。
+baseurl: ""
+url: "http://sinacloud.github.io"
+github_username: sinacloud
+
+markdown: redcarpet
+
+paginate: 5
