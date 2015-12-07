@@ -7,7 +7,7 @@ date:   2015-12-07 11:12:01
 
 事情的原因，是发生在某个晚上的9点30左右，SAE的报警系统突然报出了异常，所有的Web服务器的负载突然变得很高，流量也变得异常的大。
 这个是很有问题的，在SAE最前面的反向代理上，是部署了SAE自己开发的‘CC防火墙’的，如果出现了异常的被攻击的情况，这些异常的流量是不会到达
-Runtime的，现在这些流量都到达了Runtime，说明要么是攻击没有被正常判断，要没就是这不是一次攻击。
+Web服务器的，现在这些流量都到达了Web服务器，说明要么是攻击没有被正常判断，要没就是这不是一次攻击。
 
 事实上确实这也不是一次攻击。
 
@@ -18,7 +18,7 @@ Runtime的，现在这些流量都到达了Runtime，说明要么是攻击没有
 这是其中一个应用的数据，然而在这个应用的帐号下面，大约有十个类似的应用，都是这样的趋势，所以对于我们的Web服务器来说，在特定的时刻要接受
 接近10倍左右的流量，对于当前的规模就有点‘顶不住’了。
 
-所以讨论过后，大家的想法还是要对Runtime进行扩容，来满足这样突发的流量增长。但与此同时，Runtime也有些不一样的异常，在报警的时候，系统负载
+所以讨论过后，大家的想法还是要对Web服务器进行扩容，来满足这样突发的流量增长。但与此同时，Web服务器也有些不一样的异常，在报警的时候，系统负载
 比较高，CPU也没有什么空闲了，但是有个比较特殊的现象，就是system占用的CPU比user占用的CPU要高，这是明显不合理的，一般情况下，system占用CPU较高
 意味着系统可能存在瓶颈，比如大量的锁争用等情况。
 
@@ -27,16 +27,10 @@ Runtime的，现在这些流量都到达了Runtime，说明要么是攻击没有
 分析的第一步，就是要收集系统运行时的信息，因此我们使用了 `perf` 这个工具，在系统中对httpd进程进行了抓取，并使用
 [FlameGraph](https://github.com/brendangregg/FlameGraph)生成相应的火焰图。
 
-```bash
-
-    perf record -g -a
-    # 等待收集一段时间后Ctrl-c 退出
-    perf script > out.perf
-    ./stackcollapse-perf.pl out.perf > out.folded
-    ./flamegraph.pl out.folded > flame.svg
-
+```sh
+$ perf record -g -a # 等待收集一段时间后Ctrl-c 退出
+$ perf script | stackcollapse-perf.pl | flamegraph.pl > flame.svg
 ```
-
 
 最终生成的火焰图如下：
 
@@ -68,39 +62,40 @@ Runtime的，现在这些流量都到达了Runtime，说明要么是攻击没有
 
 最后在一台即将上线的机器上使用ab测试了一下。
 
-```bash
+修改前：
 
-	修改前：
-	
-	Concurrency Level:      100
-	Time taken for tests:   77.282 seconds
-	Complete requests:      100000
-	Failed requests:        3863
-	   (Connect: 0, Receive: 0, Length: 3863, Exceptions: 0)
-	Write errors:           0
-	Non-2xx responses:      3863
-	Total transferred:      29684301 bytes
-	HTML transferred:       9357111 bytes
-	Requests per second:    1293.96 [#/sec] (mean)
-	Time per request:       77.282 [ms] (mean)
-	Time per request:       0.773 [ms] (mean, across all concurrent requests)
-	Transfer rate:          375.10 [Kbytes/sec] received
-	
-	修改后：
+```
+Concurrency Level:      100
+Time taken for tests:   77.282 seconds
+Complete requests:      100000
+Failed requests:        3863
+   (Connect: 0, Receive: 0, Length: 3863, Exceptions: 0)
+Write errors:           0
+Non-2xx responses:      3863
+Total transferred:      29684301 bytes
+HTML transferred:       9357111 bytes
+Requests per second:    1293.96 [#/sec] (mean)
+Time per request:       77.282 [ms] (mean)
+Time per request:       0.773 [ms] (mean, across all concurrent requests)
+Transfer rate:          375.10 [Kbytes/sec] received
+```
 
-	Concurrency Level:      100
-	Time taken for tests:   16.554 seconds
-	Complete requests:      100000
-	Failed requests:        6080
-	   (Connect: 0, Receive: 0, Length: 6080, Exceptions: 0)
-	Write errors:           0
-	Non-2xx responses:      6086
-	Total transferred:      29450237 bytes
-	HTML transferred:       9218982 bytes
-	Requests per second:    6040.76 [#/sec] (mean)
-	Time per request:       16.554 [ms] (mean)
-	Time per request:       0.166 [ms] (mean, across all concurrent requests)
-	Transfer rate:          1737.32 [Kbytes/sec] received
+修改后：
+
+```
+Concurrency Level:      100
+Time taken for tests:   16.554 seconds
+Complete requests:      100000
+Failed requests:        6080
+   (Connect: 0, Receive: 0, Length: 6080, Exceptions: 0)
+Write errors:           0
+Non-2xx responses:      6086
+Total transferred:      29450237 bytes
+HTML transferred:       9218982 bytes
+Requests per second:    6040.76 [#/sec] (mean)
+Time per request:       16.554 [ms] (mean)
+Time per request:       0.166 [ms] (mean, across all concurrent requests)
+Transfer rate:          1737.32 [Kbytes/sec] received
 ```
 
 QPS 从1293.96 [#/sec] 提升到了6040.76 [#/sec]，效果还是比较明显的。
