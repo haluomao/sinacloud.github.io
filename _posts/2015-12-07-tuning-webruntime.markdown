@@ -2,7 +2,6 @@
 layout: post
 title:  "记一次SAE Web服务器的调优过程"
 date:   2015-12-07 11:12:01
-categories: update
 ---
 
 
