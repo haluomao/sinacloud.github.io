@@ -18,6 +18,6 @@ date:   2015-12-29 11:36:03
 
 - 增加了‘特征值过滤’的拦截策略
     新加了一种针对http请求的uri和header的过滤规则。通过在防火墙页面设置kv键值对使用。
-    例如：设置了“uri:*.ini,*.conf”，就会在访问*.ini和*.conf时返回609。
+    例如：设置了“uri:\*.ini,\*.conf”，就会在访问*.ini和*.conf时返回609。
 
 [参考文档](http://www.sinacloud.com/doc/sae/php/afw.html)
