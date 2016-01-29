@@ -27,7 +27,7 @@ date:   2016-01-29 18:12:01
 
 - 最新的PHP5版本，让你可以使用各种最新的PHP特性。
 
-**[Jetty9新运行环境](/blog.sinacloud.com/2015/12/02/java-runtime-updates.html)**
+**[Jetty9新运行环境](/2015/12/02/java-runtime-updates.html)**
 
 - 升级Jetty至9、OpenJDK至7。
 - 去除了版本，修改上下文为 ``/`` ，对各种Java框架提供了更好的支持。
