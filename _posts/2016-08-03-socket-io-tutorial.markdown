@@ -57,8 +57,8 @@ package.json
 ```js
 var redis = require('socket.io-redis');
 // io 是创建的 socket.io 实例。
-// REDIS_URL 为创建的 Redis 实例的链接字符串，可以在 Redis 实例的详情页面找到。
-io.adapter(redis(REDIS_URL));
+// REDIS_URL 环境变量为刚才创建的 Redis 实例的链接字符串。
+io.adapter(redis(process.env.REDIS_URL));
 ```
 
 最后重新部署一下应用，现在你可以扩展（scale up）你的应用到任意个实例了。
