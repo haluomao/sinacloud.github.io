@@ -4,7 +4,7 @@ title:  "Elasticsearch服务正式公测"
 date:   2016-08-04 11:12:01
 ---
 
-![es]({{ site.url }}/assets/elasticsearch.png)
+![es]({{ site.url }}/assets/elasticsearch.jpg)
 
 Elasticsearch是一款基于Lucene构建的开源分布式检索和分析引擎，通过RESTful API提供近实时的索引、搜索功能。
 
