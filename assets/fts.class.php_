@@ -1,0 +1,420 @@
+<?php
+
+/**
+ * 基于Elasticsearch实现的全文搜索兼容客户端<br />
+ *
+ * <code>
+ * $fts = new SaeTFTS($usr, $passwd, $idx);
+ *
+ * // 在分组1里添加id为2，内容为'content test1'的文档
+ * $ret = $fts->addDoc(2, 'content test1', 1);
+ * if ( $ret === false ) var_dump( $fts->errno(), $fts->errmsg());
+ * 
+ *
+ * // 修改分组0里，id为1的文档，内容修改为'new content test1'
+ * $ret = $fts->modifyDoc(1, "new content test1");
+ * if ( $ret === false) var_dump( $fts->errno(), $fts->errmsg());
+ *
+ * // 删除分组0里，id为1的文档
+ * $ret = $fts->deleteDoc(1);
+ * if ( $ret === false ) var_dump( $fts->errno(), $fts->errmsg());
+ * 
+ * // 在所有分组中搜索包含'test'的文档，按file_long1的升序排列 每页20条 
+ * $ret = $fts->search('test', 'file_long1', "asced", 20, 0);
+ * if ( $ret === false ) {
+ *     var_dump( $fts->errno(), $fts->errmsg());
+ * } else {
+ *     print_r( $ret );
+ * }
+ *
+ * </code>
+ *
+ * 错误码参考：
+ *  - errno: 0      成功
+ *  - errno: -1     参数错误
+ *  - errno: -4     系统内部错误
+ *  - errno: 607    服务未初始化
+ *
+ * @package sae
+ *
+ */
+class Fts
+{
+	private $_errno = 0;
+	private $_errmsg = "OK";
+	private $_errmsgs = array(
+			-1 => "invalid parameters",
+			-4 => "internal error",
+			607 => "service is not enabled",
+	);
+
+	/**
+	 * @ignore
+	 */
+	const esurl = "http://eshttp.sae.sina.com.cn/";
+
+	/**
+	 * 构造对象
+	 *
+	 */
+	function __construct($user, $passwd, $idx) {
+		$this->_ak = $user;
+		$this->_sk = $passwd;
+		$this->_index_url = self::esurl . $idx;
+	}
+
+	/**
+	 * 添加文档
+	 *
+	 * 文档id号相同的文档不可重复添加，如需修改已存在文档，请使用modifyDoc
+	 *
+	 * @param int $docid 文档的id号为整数。
+	 * @param string $content 要索引的文档内容。
+	 * @param int $groupid 文档分组，默认分组0
+	 * @param array $options 可支持以下零到多个参数key：<pre>
+	 *  	----------------------------------------------------------
+	 *  	file_long1			long,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 *  	file_long2			long,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 *  	file_long3			long,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 *  	file_sting1			string,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 *  	file_string2		string,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 *  	file_string3		string,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 * 	</pre>
+	 * 
+	 * @return bool 成功返回true，失败返回false
+	 */
+	function addDoc($docid, $content, $groupid=0, $options=array()) {
+		$posts = array();
+		$params = array();
+
+		if (trim($content) == '') {
+			$this->_errno = -1;
+			$this->_errmsg = 'content can not be empty';
+			return false;
+		}
+
+		$posts=$this->fileOp($options, $posts);
+		if($posts === false){
+			return false;
+		}
+		$posts['abstract'] = $content;
+		$posts['date'] = time();
+
+		if(!is_int($groupid)){
+			$this->_errno = -1;
+			$this->_errmsg = "groupid must be a int type";
+			return false;
+		}
+		if ($groupid < 0 || $groupid > 255){
+			$this->_errno = -1;
+			$this->_errmsg = "groupid must be in 0 to 255";
+			return false;
+		}
+
+		$url = $this->_index_url . '/' . $groupid . '/' . $docid;
+
+		$post = json_encode($posts);
+		$ret = $this->postData($url, $post, $params);
+
+		return $ret;
+	}
+
+	/**
+	 * 修改文档
+	 *
+	 * @param int $docid 文档的id号。
+	 * @param string $content 要索引的文档内容。
+	 * @param int $groupid 文档添加的分组情况，默认是0
+	 * @param array $options 可支持以下零到多个参数key：<pre>
+	 *  	----------------------------------------------------------
+	 *  	file_long1			long,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 *  	file_long2			long,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 *  	file_long3			long,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 *  	file_sting1			string,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 *  	file_string2		string,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 *  	file_string3		string,可按此参数进行排序
+	 *  	----------------------------------------------------------
+	 * 	</pre>
+	 * 
+	 * @return bool 成功返回true，失败返回false.
+	 */
+	function modifyDoc($docid, $content, $groupid=0, $options=array()) {
+		return $this->addDoc($docid, $content, $groupid, $options);
+	}
+
+
+	/**
+	 * 删除文档
+	 *
+	 * @param int $docid 文档的id号。
+	 * @param int $groupid 文档的分组。
+	 * @return bool 成功返回true，失败返回false.
+	 */
+	function deleteDoc($docid, $groupid = 0) {
+		if (!is_int($docid) && !ctype_digit($docid) ) {
+			$this->_errno = -1;
+			$this->_errmsg = 'docid must be an integer';
+			return false;
+		}
+
+		$delurl = $this->_index_url . '/' . $groupid . '/' . $docid;
+
+		$post = array();
+		$params = array();
+
+		$ret = $this->postData($delurl, $post, $params, "DELETE");
+
+		return $ret;
+	}
+
+	/**
+	 * 搜索文档
+	 *
+	 * 检索规则：
+	 *  - “+”:表示关键词的AND的关系。
+	 *  - “-“:表示关键词不再检索结果中。
+	 * 例如：
+	 *  - 当我们要搜索同时出现串a、串b但不包含串c的所有文档，检索串为："a+b+-c"
+	 *
+	 * @param string $q 检索串。
+	 * @param string $sortfiled 根据字段排序 值可选范围如下 其他为error
+	 * 	 - file_long1 根据file_long1字段进行排序
+	 * 	 - file_long2 根据file_long2字段进行排序
+	 * 	 - file_long3 根据file_long3字段进行排序
+	 * 	 - file_string1 根据file_string1字段进行排序
+	 * 	 - file_string2 根据file_string2字段进行排序
+	 *   - file_string3 根据file_string3字段进行排序
+	 * @param string $sortmode 排序方式，asced升序，descend降序 其他为error
+	 * @param int $pagesize 每页显示的结果集,默认是20
+	 * @param int $pagenum 从第几页开始,默认是0
+	 * @param int $groupid 在哪个分组中查找。默认是-1表示所有分组。
+	 * 	</pre>
+	 * 
+	 * @return array|bool 成功返回检索结果，失败返回false
+	 */
+	function search( $q, $sortfiled='file_long1', $sortmode="asced", $pagesize=20, $pagenum=0, $groupid=-1) {
+		$url = $this->_index_url;
+
+		$post = array();
+		$params = array();
+		$sort = 'desc';
+
+		if($sortfiled!='file_long1' && $sortfiled!='file_long2' && $sortfiled!='file_long3' 
+				&& $sortfiled!='file_string1' && $sortfiled!='file_string2' && $sortfiled!='file_string3'){
+			$this->_errno = -1;
+			$this->_errmsg = "sortfiled param is wrong";
+			return false;
+		}
+
+		if($sortmode!="descend" && $sortmode!="asced"){
+			$this->_errno = -1;
+			$this->_errmsg = "the sortmode param wrong";
+			return false;
+		}
+		if ($sortmode == 'asced') {
+			$sort = "asc";
+		}
+
+		if(!is_int($pagesize)){
+			$this->_errno = -1;
+			$this->_errmsg = "pagesize param is wrong";
+			return false;
+		}
+
+		if(!is_int($pagenum)){
+			$this->_errno = -1;
+			$this->_errmsg = "pagenum param is wrong";
+			return false;
+		}
+
+		if ($groupid != -1) {
+			$url = $url . '/' . $groupid;
+		}
+
+		$poststr = $this->search_json($q, array($sortfiled), $sort, $pagenum, $pagesize);
+		$url = $url . '/_search';
+
+		$ret = $this->postData($url, $poststr, $method="POST");
+
+		return $ret;
+	}
+
+	/**
+	 * 取得错误码
+	 *
+	 * @return int
+	 */
+	public function errno() {
+		return $this->_errno;
+	}
+
+	/**
+	 * 取得错误信息
+	 *
+	 * @return string
+	 */
+	public function errmsg() {
+		return $this->_errmsg;
+	}
+
+
+
+	private function postData($baseurl, $post=array(), $params=array(), $method="POST") {
+		$url = $baseurl;
+		if (is_array($params) && !empty($params)) {
+			$url = $url . '?' . http_build_query( $params );
+		}
+		if (is_array($post) and !empty($post)) {
+			$post = http_build_query($post);
+		}
+
+		$s = curl_init();
+		curl_setopt($s,CURLOPT_URL,$url);
+		curl_setopt($s,CURLOPT_HTTP_VERSION,CURL_HTTP_VERSION_1_0);
+		curl_setopt($s, CURLOPT_USERPWD, $this->_ak . ":" . $this->_sk);
+		curl_setopt($s,CURLOPT_TIMEOUT,15);
+		curl_setopt($s,CURLOPT_RETURNTRANSFER,true);
+		curl_setopt($s,CURLINFO_HEADER_OUT, true);
+		curl_setopt($s, CURLOPT_HTTPHEADER, array('Accept: application/json'));
+		if ($method == "POST") {
+		    curl_setopt($s, CURLOPT_POST, true);
+		} elseif ($method == "DELETE") {
+		    curl_setopt($s, CURLOPT_CUSTOMREQUEST, 'DELETE');
+		} elseif ($method == "PUT") {
+		    curl_setopt($s, CURLOPT_CUSTOMREQUEST, 'PUT');
+		} else {
+		    curl_setopt($s, CURLOPT_HTTPGET, true);
+		}
+
+		if (!empty($post) and $post != "") {
+		    curl_setopt($s, CURLOPT_POSTFIELDS, $post);
+		}
+
+		$ret = curl_exec($s);
+		$info = curl_getinfo($s);
+		curl_close($s);
+
+		if(empty($info['http_code'])) {
+			$this->_errno = -4;
+			$this->_errmsg = "fulltext search service internal error";
+		} else if($info['http_code'] == 404) {
+			$this->_errno = 607;
+			$this->_errmsg = $this->_errmsgs[607];
+		} else if($info['http_code'] != 200 && $info['http_code'] !=201) {
+			$this->_errno = -1;
+			$this->_errmsg = $this->_errmsgs[-4];
+		} else {
+			if($info['size_download'] == 0) {
+				$this->_errno = 500;
+				$this->_errmsg = "fulltext search service internal error";
+			} else {
+				$array = json_decode(trim($ret), true);
+				if (isset($array['status']) && $array['status'] !== 200) {
+					$this->_errno = $array['status'];
+					$this->_errmsg = json_encode($array['error']);
+					return false;
+				} else {
+					$this->_errno = 0;
+					$this->_errmsg = 'OK';
+					if ( isset($array['hits']['hits']) ) {
+						// return $array['hits']['hits'];
+						$result = Array();
+						$count = 0;
+						foreach ($array['hits']['hits'] as $val) {
+							$count += 1;
+							$result[] = array("groupid"=>  $val['_type'], "docid"=> $val['_id'], "abstract"=> $val['fields']['abstract'][0], "date"=> $val['fields']['date'][0]);
+						}
+						return array('count'=> $count, 'result'=> $result);
+					} else {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	private function fileOp($arr, $params){
+		if(isset($arr['file_long1']) && !empty($arr['file_long1'])){
+			if(!is_int($arr['file_long1']) && !ctype_digit($arr['file_long1'])){
+				$this->_errno = -1;
+				$this->_errmsg = 'file_long1 must be an integer';
+				return false;
+			}
+			$params['file_long1']=$arr['file_long1'];
+		}
+
+		if(isset($arr['file_long2']) && !empty($arr['file_long2'])){
+			if(!is_int($arr['file_long2']) && !ctype_digit($arr['file_long2'])){
+				$this->_errno = -1;
+				$this->_errmsg = 'file_long2 must be an integer';
+				return false;
+			}
+			$params['file_long2']=$arr['file_long2'];
+		}
+
+		if(isset($arr['file_long3']) && !empty($arr['file_long3'])){
+			if(!is_int($arr['file_long3']) && !ctype_digit($arr['file_long3'])){
+				$this->_errno = -1;
+				$this->_errmsg = 'file_long3 must be an integer';
+				return false;
+			}
+			$params['file_long3']=$arr['file_long3'];
+		}
+
+		if(isset($arr['file_string1']) && !empty($arr['file_string1'])){
+			if(!is_string($arr['file_string1'])){
+				$this->_errno = -1;
+				$this->_errmsg = 'file_string1 must be an string';
+				return false;
+			}
+			$params['file_string1']=$arr['file_string1'];
+		}
+
+		if(isset($arr['file_string2']) && !empty($arr['file_string2'])){
+			if(!is_string($arr['file_string2'])){
+				$this->_errno = -1;
+				$this->_errmsg = 'file_string2 must be an string';
+				return false;
+			}
+			$params['file_string2']=$arr['file_string2'];
+		}
+
+		if(isset($arr['file_string3']) && !empty($arr['file_string3'])){
+			if(!is_string($arr['file_string3'])){
+				$this->_errno = -1;
+				$this->_errmsg = 'file_string3 must be an string';
+				return false;
+			}
+			$params['file_string3']=$arr['file_string3'];
+		}
+		return $params;
+	}
+
+	private function search_json($q, $sorts, $order='desc', $from=0, $size=100) {
+		$posts = Array();
+		$posts['fields'] = array('abstract','date');
+		$posts['query']['simple_query_string']['query'] = $q;
+		$posts['query']['simple_query_string']['fields'] = array('abstract');
+
+		foreach ($sorts as $val) {
+			$posts['sort'][$val]['order'] = $order;
+		}
+		$posts['from'] = $from;
+		$posts['size'] = $size;
+
+		return json_encode($posts);
+	}
+}
+?>
