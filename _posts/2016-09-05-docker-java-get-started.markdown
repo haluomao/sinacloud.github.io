@@ -34,7 +34,7 @@ date:   2016-09-05 16:32:01
 
 然后我们来着手建立一个maven的项目，当然我们可以通过maven的命令来创建一个项目，不过我们有IDE，可以方便的利用可视化界面操作，而且也方便使用插件。
 
-好了，我们现在已经打开了终端，接下来我们就开始创建自己的web项目，点击"File"->"New"->"Maven project"，如下图
+好了，我们打开eclipse，接下来我们就开始创建自己的web项目，点击"File"->"New"->"Maven project"，如下图
 
 ![create-project]({{ site.url }}/assets/eclipse-create-mvn-01.png)
 
