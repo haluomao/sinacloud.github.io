@@ -8,7 +8,7 @@ date:   2016-09-05 16:32:01
 
 
 环境说明
--------------------
+===================
 新浪云容器Java环境基于docker搭建，支持多实例负载均衡，近乎原生虚拟机环境，使用无门槛。
 
 * JDK 1.8
@@ -18,7 +18,7 @@ date:   2016-09-05 16:32:01
 
 
 准备
--------------------
+====================
 开发自己的应用之前，我们先要准备好自己的开发环境，新浪云的容器Java应用所需的环境和一般开发环境类似。
 
 * JDK（最好是能与线上同步，当然低版本也可以） version:1.7以上
@@ -28,7 +28,7 @@ date:   2016-09-05 16:32:01
 *安装方式就不累述了，各个环境下如何安装配置，大家可以自行用百度谷歌一下*
 
 创建初始化应用
--------------------
+====================
 
 首先我们要创建自己的新浪云账号，这个就不累述了，具体参看[新浪云](http://www.sinacloud.com/)。
 
@@ -81,8 +81,8 @@ date:   2016-09-05 16:32:01
 至此，我们开发前的准备工作就完成了，接下来我们可以开始开发了。
 
 
-开始
---------------------
+开始-数据库与缓存
+====================
 
 接下来的web应用就可以根据自己的业务需求开始开发，就不说具体的开发过程了，下面着重介绍下新浪云相关服务的使用方法和注意事项。
 我们先来建立一个servlet，通过这个servlet来演示相关功能的展示，建立一个如下图的package在建立一个名为test的servlet。
@@ -231,9 +231,105 @@ MongoDB
         	<version>3.2.2</version>
 	</dependency>
 ```
+同时也需要在面板李初始化服务。然后可以根据自己的需要在mongodb实例中创建库或者是集合，我自己建立了一个叫"test"的库，然后建立了一个叫"users"的集合。
 
 还是在那个servlet中插入如下的代码。
 
 ```java
 
+	MongoClientURI uri = new MongoClientURI("YOUR_MONGODB_URL");
+	MongoClient client = new MongoClient(uri);
+	MongoDatabase db = client.getDatabase("test");
+	MongoCollection<Document> users = db.getCollection("users");
+	Document user = new Document("key", "sinacloud");
+	users.insertOne(user);
+	response.getWriter().println(users.find(user).iterator().next().get("key"));
+
 ```
+然后上传到新浪云，可以看到如下结果
+
+![mongodb]({{ site.url }}/assets/show-mongodb.png)
+
+
+开始-存储服务
+===================
+
+这里还是在上面建立的那个servlet演示操作。对于容器java，我们提供了一套sdk支持，相关存储的操作，sdk已经放在了maven的中央仓库上，可以通过maven进行下载，在项目的*pom.xml*中添加如下依
+赖。
+
+```xml
+        <dependency>
+                <groupId>com.sinacloud.java</groupId>
+                <artifactId>java-sdk</artifactId>
+                <version>1.2.1</version>
+        </dependency>
+```
+目前，sdk里包含了kvdb（已经在1.2.2版本中去除）、云存储、Storage，以后新的服务，会在不断的增加。
+
+
+Storage
+-----------------
+
+Storage服务是新浪云开发的一套对象存储服务，首先也要在面板上开启服务，初始化，然后在servlet中添加如下的代码。
+
+```java
+	StorageClient sc = new StorageClient();
+	sc.createBucket("testbucket");
+	sc.putObjectFile("testbucket", "test.txt", "test storage client upload text".getBytes(), null);
+```
+
+然后上传到新浪云上，然后访问一下servlet，之后可以在自己storage面板里，可以看到文件。如下图
+
+![storage]({{ site.url }}/assets/show-storage.png)
+
+
+云存储
+------------------
+参见[云存储](http://open.sinastorage.com/)，有详细的[API](http://www.sinacloud.com/doc/scs/api)。
+
+
+开始-其他解决方案
+======================
+
+分布式session
+----------------------
+多实例的情况下，准备了两种解决方案，一种是粘滞会话，另一种是第三方session存储。粘滞会话可以在创建应用的时候开启。下面演示一下使用第三方redis服务存储session
+
+为了方便演示，我先把我测试的容器实例扩展到多个，到了3个jvm，如图所示。
+
+![session]({{ site.url }}/assets/distribute-session-01.png)
+
+然后我们创建一个redis服务，具体创建参见[Redis文档](https://www.sinacloud.com/doc/sae/services/redis.html)，然后进入"应用"->"环境变量面板"，点击添加环境变量，添加以下两个环境变量。添加如下的环境变量。
+
+ * REDIS_URL="YOUR_REDIS_URL"
+ * SESSION_MANAGER=REDIS
+
+然后我们重启下我们的应用。
+
+还是在我们上面创建的servlet里演示
+
+```java
+	HttpSession session = request.getSession();
+	session.setAttribute("key", "sinacloud");
+	response.getWriter().println(session.getAttribute("key"));
+```
+
+然后我们访问下我们的servlet，如下图。
+
+![session]({{ site.url }}/assets/distribute-session-02.png)
+
+最后我们在确认下是否将session的数据存储到了redis，进入到redis控制面板，点击管理，输入如下命令。
+
+ * keys *
+
+可以看到如下的效果。
+
+![session]({{ site.url }}/assets/distribute-session-03.png)
+
+可以看到，由tomcat自主存的session信息，都在我们的redis里了，这样就可以实现多实例之间的session共享了。如果使用过程中需要存储对象，要预先对对象进行序列化
+
+
+最后
+================
+
+以上简单的介绍了一下，新浪云容器环境java相关的问题，主要是在新浪云相关的服务上，如果以后有新的服务或者问题，我会继续更新相关的使用方法和文档。当然使用中如果遇到上面问题，可以提交[工单](https://www.sinacloud.com/ucenter/workorderadd.html)求助。
