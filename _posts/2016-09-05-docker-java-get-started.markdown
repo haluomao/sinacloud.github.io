@@ -101,9 +101,9 @@ date:   2016-09-05 16:32:01
 
 ```xml
 <dependency>
-    	<groupId>mysql</groupId>
-    	<artifactId>mysql-connector-java</artifactId>
-    	<version>5.1.20</version>
+	<groupId>mysql</groupId>
+	<artifactId>mysql-connector-java</artifactId>
+	<version>5.1.20</version>
 </dependency>
 ```
 
@@ -147,8 +147,8 @@ memcache服务同样也要在你创建的应用中开启面板，初始化一下
 ```xml
 <dependency>
 	<groupId>net.spy</groupId>
-    	<artifactId>spymemcached</artifactId>
-    	<version>2.12.0</version>
+	<artifactId>spymemcached</artifactId>
+	<version>2.12.0</version>
 </dependency>
 ```
 
@@ -222,9 +222,9 @@ try {
 
 ```xml
 <dependency>
-       	<groupId>org.mongodb</groupId>
-       	<artifactId>mongo-java-driver</artifactId>
-       	<version>3.2.2</version>
+	<groupId>org.mongodb</groupId>
+	<artifactId>mongo-java-driver</artifactId>
+	<version>3.2.2</version>
 </dependency>
 ```
 同时也需要在面板李初始化服务。然后可以根据自己的需要在mongodb实例中创建库或者是集合，我自己建立了一个叫"test"的库，然后建立了一个叫"users"的集合。
@@ -256,8 +256,8 @@ response.getWriter().println(users.find(user).iterator().next().get("key"));
 ```xml
 <dependency>
 	<groupId>com.sinacloud.java</groupId>
-        <artifactId>java-sdk</artifactId>
-        <version>1.2.1</version>
+	<artifactId>java-sdk</artifactId>
+	<version>1.2.1</version>
 </dependency>
 ```
 目前，sdk里包含了kvdb（已经在1.2.2版本中去除）、云存储、Storage，以后新的服务，会在不断的增加。
