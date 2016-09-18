@@ -7,7 +7,7 @@ date:   2016-09-05 16:32:01
 经过一段时间的开发，更新，迭代，新浪云容器Java环境逐渐成熟起来，相比过去的javaruntime，可用性和易用性都得到了大量的提升。同时也收到了不少用户反馈的使用问题，特此在这篇文章里综合介绍一下容器java使用以及相关服务的整合。
 
 
-# 环境说明
+**环境说明**
 
 新浪云容器Java环境基于docker搭建，支持多实例负载均衡，近乎原生虚拟机环境，使用无门槛。
 
@@ -17,7 +17,7 @@ date:   2016-09-05 16:32:01
 *注意：这里以后可能会提供相应的web容器定制服务*
 
 
-# 准备
+**准备**
 
 开发自己的应用之前，我们先要准备好自己的开发环境，新浪云的容器Java应用所需的环境和一般开发环境类似。
 
@@ -27,7 +27,7 @@ date:   2016-09-05 16:32:01
 
 *安装方式就不累述了，各个环境下如何安装配置，大家可以自行用百度谷歌一下*
 
-# 创建初始化应用
+**创建初始化应用**
 
 
 首先我们要创建自己的新浪云账号，这个就不累述了，具体参看[新浪云](http://www.sinacloud.com/)。
@@ -81,8 +81,6 @@ date:   2016-09-05 16:32:01
 至此，我们开发前的准备工作就完成了，接下来我们可以开始开发了。
 
 
-# 数据库与缓存
-
 
 接下来的web应用就可以根据自己的业务需求开始开发，就不说具体的开发过程了，下面着重介绍下新浪云相关服务的使用方法和注意事项。
 我们先来建立一个servlet，通过这个servlet来演示相关功能的展示，建立一个如下图的package在建立一个名为test的servlet。
@@ -95,7 +93,7 @@ date:   2016-09-05 16:32:01
 
 这样，我们的servlet的就建立好了，接下来我们的演示就基于这个servlet展开介绍。
 
-## Mysql
+**Mysql**
 
 新浪云的数据库服务有两种，一种是[共享型数据库](http://www.sinacloud.com/doc/sae/php/mysql.html)，一种是[独享型数据库](http://www.sinacloud.com/doc/sae/php/rds.html)，但其实操作方式都是一样的，具体参看相关文档。以共享型数据库为例子吧，通过jdbc方式即可连接。
 
@@ -141,7 +139,7 @@ try {
 这里只是展示了最基本的使用方法，有些项目中会使用连接池，连接池只需要注意一项，将idle时间调整到10秒以下即可，无论是独享型还是共享型都是如此。
 
 
-## Memcached
+**Memcached**
 
 
 memcache服务同样也要在你创建的应用中开启面板，初始化一下。容器使用的memcache有auth认证，需要使用支持SASL协议的客户端，推荐使用*spymemcached*客户端，首先在*pom.xml*文件中添加如下依赖。
@@ -184,7 +182,7 @@ try {
 这里只是简单的实现了set和get方法，其他的可以参看[spymemcached](https://code.google.com/archive/p/spymemcached/)。
 
 
-## Redis
+**Redis**
 
 
 新浪云redis服务，类似于memcache服务，先在*pom.xml*里添加一个redis的客户端，如jedis
@@ -217,7 +215,7 @@ try {
 ![redis]({{ site.url }}/assets/show-redis.png)
 
 
-## MongoDB
+**MongoDB**
 
 
 首先还是在*pom.xml*中添加一下依赖。
@@ -249,7 +247,7 @@ response.getWriter().println(users.find(user).iterator().next().get("key"));
 ![mongodb]({{ site.url }}/assets/show-mongodb.png)
 
 
-# 存储服务
+**存储服务**
 
 
 这里还是在上面建立的那个servlet演示操作。对于容器java，我们提供了一套sdk支持，相关存储的操作，sdk已经放在了maven的中央仓库上，可以通过maven进行下载，在项目的*pom.xml*中添加如下依
@@ -265,7 +263,7 @@ response.getWriter().println(users.find(user).iterator().next().get("key"));
 目前，sdk里包含了kvdb（已经在1.2.2版本中去除）、云存储、Storage，以后新的服务，会在不断的增加。
 
 
-## Storage
+**Storage**
 
 
 Storage服务是新浪云开发的一套对象存储服务，首先也要在面板上开启服务，初始化，然后在servlet中添加如下的代码。
@@ -281,15 +279,14 @@ sc.putObjectFile("testbucket", "test.txt", "test storage client upload text".get
 ![storage]({{ site.url }}/assets/show-storage.png)
 
 
-## 云存储
+**云存储**
 
 参见[云存储](http://open.sinastorage.com/)，有详细的[API](http://www.sinacloud.com/doc/scs/api)。
 
 
-# 其他解决方案
 
 
-## 分布式session
+**分布式session**
 
 多实例的情况下，准备了两种解决方案，一种是粘滞会话，另一种是第三方session存储。粘滞会话可以在创建应用的时候开启。下面演示一下使用第三方redis服务存储session
 
@@ -327,7 +324,7 @@ response.getWriter().println(session.getAttribute("key"));
 可以看到，由tomcat自主存的session信息，都在我们的redis里了，这样就可以实现多实例之间的session共享了。如果使用过程中需要存储对象，要预先对对象进行序列化
 
 
-# 最后
+**最后**
 
 
 以上简单的介绍了一下，新浪云容器环境java相关的问题，主要是在新浪云相关的服务上，如果以后有新的服务或者问题，我会继续更新相关的使用方法和文档。当然使用中如果遇到上面问题，可以提交[工单](https://www.sinacloud.com/ucenter/workorderadd.html)求助。
