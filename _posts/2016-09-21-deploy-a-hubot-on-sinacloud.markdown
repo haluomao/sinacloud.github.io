@@ -48,6 +48,8 @@ $ git push -u origin master
 
 完成，现在，我们可以在 Bearychat 里调戏一把我们新加的 Hubot 机器人了。
 
+![hubot-remchan]({{ site.url }}/assets/hubot-remchan.jpg)
+
 **给机器人添加新的命令**
 
 给 Hubot 添加新的命令非常的简单，在 scripts 目录下建一个 .coffee 或者 .js 结尾的文件，按照 *scripts/example.coffee* 中的示例添加你自己需要的命令即可。
